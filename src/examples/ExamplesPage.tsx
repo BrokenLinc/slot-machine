@@ -553,7 +553,7 @@ const ContextExample: React.FC = () => {
   );
 };
 
-const ExamplesPage: React.FC = () => {
+export const ExamplesPage: React.FC = () => {
   const exampleComponents = [
     ImageExample,
     NumbersExample,
@@ -601,5 +601,3 @@ const ExamplesPage: React.FC = () => {
     </UI.Box>
   );
 };
-
-export default ExamplesPage;
