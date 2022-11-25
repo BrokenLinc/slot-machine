@@ -1,3 +1,9 @@
+import { ThemeProvider } from './theme';
+
 export const App: React.FC = () => {
-  return <div>app</div>;
+  return (
+    <ThemeProvider>
+      <div>app</div>
+    </ThemeProvider>
+  );
 };
