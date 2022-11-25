@@ -14,7 +14,7 @@ import useLocalStorageState from 'use-local-storage-state';
 import { useSearchParams } from 'react-router-dom';
 import * as util from 'util';
 
-import logoSrc from '../images/logo.svg';
+import logoSrc from './images/logo.svg';
 
 // Wrap components with Framer Motion for use in animated components.
 // (You only have to do this once.)
