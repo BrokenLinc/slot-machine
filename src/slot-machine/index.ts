@@ -1,21 +1,100 @@
 import React from 'react';
 import _ from 'lodash';
 import * as FramerMotion from 'framer-motion';
+import * as icons from '@fortawesome/pro-solid-svg-icons';
+import * as UI from '@chakra-ui/react';
 
-interface Symbol {
-  score: number;
-  type: string;
-  targets?: string[];
-  sprite?: string;
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'very_rare' | 'special';
+
+export interface Effect {
+  targets?: Symbol[];
+  location:
+    | 'anywhere'
+    | 'adjacent'
+    | 'same_row'
+    | 'same_column'
+    | 'self_corner';
+  type: 'destroy' | 'add' | 'multiply_score' | 'increase_score';
+  probability?: number;
 }
 
-const SymbolLibrary: Record<string, Symbol> = {
-  empty: { score: 0, type: 'empty', sprite: '-' },
-  A: { score: 10, type: 'A' },
-  B: { score: 100, type: 'B' },
-  C: { score: 20, type: 'C' },
-  D: { score: 5, type: 'D' },
-  E: { score: 2, type: 'E' },
+export interface Symbol {
+  name: string;
+  score: number;
+  targets?: Symbol[];
+  icon: icons.IconDefinition;
+  color?: string;
+  rarity: Rarity;
+  effects?: Effect[];
+}
+
+const defineSymbol = (props: Partial<Symbol>): Symbol => {
+  return {
+    name: '',
+    score: 0,
+    icon: icons.faQuestionCircle,
+    rarity: 'common',
+    ...props,
+  };
+};
+
+const symbolLibrary = {
+  empty: defineSymbol({
+    name: 'Empty',
+    icon: icons.faHyphen,
+    rarity: 'special',
+  }),
+  bee: defineSymbol({
+    name: 'Bee',
+    score: 1,
+    icon: icons.faBee,
+    color: 'yellow.400',
+  }),
+  cat: defineSymbol({
+    name: 'Cat',
+    score: 1,
+    icon: icons.faCat,
+    color: 'orange.400',
+  }),
+  cherry: defineSymbol({
+    name: 'Cherry',
+    score: 1,
+    icon: icons.faCherries,
+    color: 'red.500',
+  }),
+  coin: defineSymbol({
+    name: 'Coin',
+    score: 1,
+    icon: icons.faCoin,
+    color: 'yellow.500',
+  }),
+  flower: defineSymbol({
+    name: 'Flower',
+    score: 1,
+    icon: icons.faFlowerTulip,
+    color: 'purple.400',
+  }),
+  milk: defineSymbol({
+    name: 'Milk',
+    score: 1,
+    icon: icons.faJug,
+    color: 'gray.300',
+  }),
+  spade: defineSymbol({
+    name: 'Spade',
+    score: 1,
+    icon: icons.faSpade,
+  }),
+};
+
+type SymbolKey = keyof typeof symbolLibrary;
+
+const symbolsByRarity: Record<Rarity, Symbol[]> = {
+  special: _.filter(symbolLibrary, { rarity: 'special' }),
+  common: _.filter(symbolLibrary, { rarity: 'common' }),
+  rare: _.filter(symbolLibrary, { rarity: 'rare' }),
+  uncommon: _.filter(symbolLibrary, { rarity: 'uncommon' }),
+  very_rare: _.filter(symbolLibrary, { rarity: 'very_rare' }),
 };
 
 // Constants
@@ -29,6 +108,13 @@ const useAnimations = (n: number) => {
   return _.times(n, () => FramerMotion.useAnimation());
 };
 
+const createSymbol = (keyOrSymbol: Symbol | SymbolKey) => {
+  if (typeof keyOrSymbol === 'string') {
+    return _.clone(symbolLibrary[keyOrSymbol]);
+  }
+  return _.clone(keyOrSymbol);
+};
+
 // Randomly select a number of symbols from a collection
 // And if there are not enough, fill with empty symbols first
 const pickSymbols = (symbols: Symbol[]): Symbol[] => {
@@ -36,7 +122,7 @@ const pickSymbols = (symbols: Symbol[]): Symbol[] => {
     symbols.concat(
       _.fill(
         Array(Math.max(0, SYMBOL_COUNT - symbols.length)),
-        _.clone(SymbolLibrary.empty)
+        createSymbol('empty')
       )
     ),
     SYMBOL_COUNT
@@ -44,23 +130,17 @@ const pickSymbols = (symbols: Symbol[]): Symbol[] => {
 };
 
 const createInitialOwnedSymbols = (): Symbol[] => {
-  return [
-    _.clone(SymbolLibrary.A),
-    _.clone(SymbolLibrary.B),
-    _.clone(SymbolLibrary.C),
-    _.clone(SymbolLibrary.D),
-    _.clone(SymbolLibrary.E),
-  ];
+  const result = _.times(SYMBOL_COUNT, () => createSymbol('empty'));
+  result[5] = createSymbol('cat');
+  result[7] = createSymbol('cherry');
+  result[9] = createSymbol('coin');
+  result[11] = createSymbol('flower');
+  result[13] = createSymbol('spade');
+  return result;
 };
 
 const createInitialViewportSymbols = (ownedSymbols: Symbol[]): Symbol[] => {
-  const result = _.times(SYMBOL_COUNT, () => _.clone(SymbolLibrary.empty));
-  result[5] = ownedSymbols[0];
-  result[7] = ownedSymbols[1];
-  result[9] = ownedSymbols[2];
-  result[11] = ownedSymbols[3];
-  result[13] = ownedSymbols[4];
-  return result;
+  return [...ownedSymbols];
 };
 
 // Trigger various symbol effects and tabulate scores
@@ -120,12 +200,18 @@ export const useSlotMachine = () => {
   const scoreAnimations = useAnimations(SYMBOL_COUNT);
   const [score, setScore] = React.useState(0);
   const [spinCount, setSpinCount] = React.useState(0);
+  const prizeWindow = UI.useDisclosure();
+  const [prizeOptions, setPrizeOptions] = React.useState<Symbol[]>([]);
+  const paymentWindow = UI.useDisclosure();
+  const canSpin = !spinning && !prizeWindow.isOpen && !paymentWindow.isOpen;
 
   const addToScore = (n: number) => {
     setScore((v) => v + n);
   };
 
   const spin = () => {
+    if (!canSpin) return;
+
     setSpinning(true);
     setSpinCount((n) => n + 1);
     const newSymbols = pickSymbols(ownedSymbols);
@@ -141,6 +227,46 @@ export const useSlotMachine = () => {
       addToScore
     );
     setSpinning(false);
+    openPrizeWindow();
+  };
+
+  const openPrizeWindow = () => {
+    // TODO: choose by rarity
+    setPrizeOptions(_.sampleSize(symbolsByRarity.common, 3));
+    prizeWindow.onOpen();
+  };
+
+  const addSymbol = (symbol: Symbol | SymbolKey) => {
+    setOwnedSymbols((val) => {
+      const symbolToAdd = createSymbol(symbol);
+      // if there is an empty symbol,
+      //   replace the first one in the viewport OR the first one owned
+      const symbolToReplace =
+        _.find(viewportSymbols, symbolLibrary.empty) ||
+        _.find(ownedSymbols, symbolLibrary.empty);
+
+      if (!symbolToReplace) {
+        return [...val, symbolToAdd];
+      }
+
+      const newVal = [...val];
+      newVal[newVal.indexOf(symbolToReplace)] = symbolToAdd;
+      setViewportSymbols((val) => {
+        const visibleSymbolIndex = val.indexOf(symbolToReplace);
+        if (visibleSymbolIndex === -1) {
+          return val;
+        }
+        const newVal = [...val];
+        newVal[visibleSymbolIndex] = symbolToAdd;
+        return newVal;
+      });
+      return newVal;
+    });
+  };
+
+  const selectPrize = (symbol: Symbol | SymbolKey) => {
+    addSymbol(symbol);
+    prizeWindow.onClose();
   };
 
   return {
@@ -148,10 +274,15 @@ export const useSlotMachine = () => {
     score,
     spinCount,
     spinning,
+    canSpin,
     symbolAnimations,
     scoreAnimations,
     spin,
     handleSpinComplete,
+    prizeOptions,
+    selectPrize,
+    prizeWindow,
+    paymentWindow,
   };
 };
 

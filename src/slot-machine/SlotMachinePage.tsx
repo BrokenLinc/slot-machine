@@ -2,6 +2,7 @@ import React from 'react';
 import _ from 'lodash';
 import * as UI from '@chakra-ui/react';
 import * as FramerMotion from 'framer-motion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import * as SlotMachine from './';
 
@@ -84,53 +85,111 @@ const SymbolScoreOverlay: React.FC<
   );
 };
 
+const SymbolIcon: React.FC<
+  UI.HeadingProps & { symbol: SlotMachine.Symbol }
+> = ({ symbol, ...headingProps }) => {
+  return (
+    <UI.Heading color={symbol.color || ''} {...headingProps}>
+      {symbol.icon ? <FontAwesomeIcon icon={symbol.icon} /> : symbol.name}
+    </UI.Heading>
+  );
+};
+
 export const SlotMachinePage: React.FC = () => {
   const {
     viewportSymbols,
     score,
     spinCount,
     spinning,
+    canSpin,
     symbolAnimations,
     scoreAnimations,
     spin,
     handleSpinComplete,
+    prizeOptions,
+    prizeWindow,
+    selectPrize,
+    paymentWindow,
   } = SlotMachine.useSlotMachine();
 
   return (
-    <UI.Stack spacing={4} p={4} alignItems="center">
-      <SlotMachineWindow>
-        {_.times(SlotMachine.COLUMNS - 1, (column) => {
-          return <ReelDivider key={column} column={column} />;
-        })}
-        <FramerMotion.AnimatePresence onExitComplete={handleSpinComplete}>
-          {_.map(viewportSymbols, (symbol, i) => {
-            const key = [spinCount, i].join('_');
-            const column = i % SlotMachine.COLUMNS;
-            const row = Math.floor(i / SlotMachine.COLUMNS);
-
-            return (
-              <SymbolTile key={key} row={row} column={column}>
-                <MotionUI.Flex animate={symbolAnimations[i]}>
-                  <UI.Heading>{symbol.sprite || symbol.type}</UI.Heading>
-                </MotionUI.Flex>
-                <SymbolScoreOverlay animate={scoreAnimations[i]}>
-                  <UI.Heading size="sm">+{symbol.score}</UI.Heading>
-                </SymbolScoreOverlay>
-              </SymbolTile>
-            );
+    <React.Fragment>
+      <UI.Stack spacing={4} p={4} alignItems="center">
+        <SlotMachineWindow>
+          {_.times(SlotMachine.COLUMNS - 1, (column) => {
+            return <ReelDivider key={column} column={column} />;
           })}
-        </FramerMotion.AnimatePresence>
-      </SlotMachineWindow>
-      <UI.Button
-        size="lg"
-        disabled={spinning}
-        colorScheme="green"
-        onClick={spin}
+          <FramerMotion.AnimatePresence onExitComplete={handleSpinComplete}>
+            {_.map(viewportSymbols, (symbol, i) => {
+              const key = [spinCount, i].join('_');
+              const column = i % SlotMachine.COLUMNS;
+              const row = Math.floor(i / SlotMachine.COLUMNS);
+
+              return (
+                <SymbolTile key={key} row={row} column={column}>
+                  <MotionUI.Flex animate={symbolAnimations[i]}>
+                    <SymbolIcon symbol={symbol} />
+                  </MotionUI.Flex>
+                  <SymbolScoreOverlay animate={scoreAnimations[i]}>
+                    <UI.Heading size="sm">+{symbol.score}</UI.Heading>
+                  </SymbolScoreOverlay>
+                </SymbolTile>
+              );
+            })}
+          </FramerMotion.AnimatePresence>
+        </SlotMachineWindow>
+        <UI.Button
+          size="lg"
+          disabled={!canSpin}
+          colorScheme="green"
+          onClick={spin}
+        >
+          Spin
+        </UI.Button>
+        <UI.Text>Spinning: {JSON.stringify(spinning)}</UI.Text>
+        <UI.Text>Score: {score}</UI.Text>
+      </UI.Stack>
+
+      <UI.Modal
+        isCentered
+        closeOnEsc={false}
+        closeOnOverlayClick={false}
+        size="xl"
+        {...prizeWindow}
       >
-        Spin
-      </UI.Button>
-      <UI.Text>Spinning: {JSON.stringify(spinning)}</UI.Text>
-      <UI.Text>Score: {score}</UI.Text>
-    </UI.Stack>
+        <UI.ModalOverlay />
+        <UI.ModalContent>
+          <UI.ModalHeader>Add a symbol:</UI.ModalHeader>
+          <UI.ModalBody>
+            <UI.HStack justifyContent="center">
+              {_.map(prizeOptions, (prizeOption, i) => (
+                <UI.Button
+                  key={i}
+                  p={4}
+                  h="auto"
+                  w="160px"
+                  onClick={() => selectPrize(prizeOption)}
+                >
+                  <UI.VStack>
+                    <SymbolIcon symbol={prizeOption} />
+                    <UI.Heading size="sm">{prizeOption.name}</UI.Heading>
+                  </UI.VStack>
+                </UI.Button>
+              ))}
+            </UI.HStack>
+          </UI.ModalBody>
+          <UI.ModalFooter justifyContent="center">
+            <UI.Button
+              variant="outline"
+              colorScheme="red"
+              size="sm"
+              onClick={prizeWindow.onClose}
+            >
+              Skip
+            </UI.Button>
+          </UI.ModalFooter>
+        </UI.ModalContent>
+      </UI.Modal>
+    </React.Fragment>
   );
 };
