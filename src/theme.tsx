@@ -5,7 +5,7 @@ export const theme = UI.extendTheme({
   styles: {
     global: {
       body: {
-        bg: 'gray.200',
+        // bg: 'gray.200',
       },
     },
   },
