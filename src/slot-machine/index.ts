@@ -7,21 +7,19 @@ import * as UI from '@chakra-ui/react';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'very_rare' | 'special';
 
 export interface Effect {
-  targets?: Symbol[];
-  location:
-    | 'anywhere'
-    | 'adjacent'
-    | 'same_row'
-    | 'same_column'
-    | 'self_corner';
-  type: 'destroy' | 'add' | 'multiply_score' | 'increase_score';
+  where?: 'adjacent' | 'self';
+  actionTargets?: SymbolKey[];
+  action: 'destroy' | 'add' | 'multiply_score' | 'increase_score';
+  actionValue?: number;
+  actionSymbol?: SymbolKey;
   probability?: number;
 }
 
 export interface Symbol {
+  key: string;
   name: string;
   score: number;
-  targets?: Symbol[];
+  // targets?: SymbolKey[];
   icon: icons.IconDefinition;
   color?: string;
   rarity: Rarity;
@@ -30,6 +28,7 @@ export interface Symbol {
 
 const defineSymbol = (props: Partial<Symbol>): Symbol => {
   return {
+    key: '',
     name: '',
     score: 0,
     icon: icons.faQuestionCircle,
@@ -38,56 +37,80 @@ const defineSymbol = (props: Partial<Symbol>): Symbol => {
   };
 };
 
-const symbolLibrary = {
+type SymbolKey =
+  | 'empty'
+  | 'bee'
+  | 'cat'
+  | 'cherry'
+  | 'coin'
+  | 'flower'
+  | 'milk'
+  | 'spade';
+
+const symbolLibrary: Record<SymbolKey, Symbol> = {
   empty: defineSymbol({
+    key: 'empty',
     name: 'Empty',
     icon: icons.faHyphen,
     rarity: 'special',
   }),
   bee: defineSymbol({
+    key: 'bee',
     name: 'Bee',
     score: 1,
     icon: icons.faBee,
     color: 'yellow.400',
+    effects: [
+      {
+        where: 'adjacent',
+        actionTargets: ['flower'],
+        action: 'multiply_score',
+        actionValue: 2,
+      },
+    ],
   }),
   cat: defineSymbol({
+    key: 'cat',
     name: 'Cat',
     score: 1,
     icon: icons.faCat,
     color: 'orange.400',
   }),
   cherry: defineSymbol({
+    key: 'cherry',
     name: 'Cherry',
     score: 1,
     icon: icons.faCherries,
     color: 'red.500',
   }),
   coin: defineSymbol({
+    key: 'coin',
     name: 'Coin',
     score: 1,
     icon: icons.faCoin,
     color: 'yellow.500',
   }),
   flower: defineSymbol({
+    key: 'flower',
     name: 'Flower',
     score: 1,
     icon: icons.faFlowerTulip,
     color: 'purple.400',
   }),
   milk: defineSymbol({
+    key: 'milk',
     name: 'Milk',
     score: 1,
     icon: icons.faJug,
     color: 'gray.300',
   }),
   spade: defineSymbol({
+    key: 'spade',
     name: 'Spade',
     score: 1,
     icon: icons.faSpade,
   }),
 };
-
-type SymbolKey = keyof typeof symbolLibrary;
 
 const symbolsByRarity: Record<Rarity, Symbol[]> = {
   special: _.filter(symbolLibrary, { rarity: 'special' }),
@@ -143,6 +166,26 @@ const createInitialViewportSymbols = (ownedSymbols: Symbol[]): Symbol[] => {
   return [...ownedSymbols];
 };
 
+const getAdjacentSymbols = (
+  index: number,
+  symbols: Symbol[],
+  filterKeys: SymbolKey[] | undefined
+): Symbol[] => {
+  const adjacentSymbols = _.compact([
+    symbols.at(index - COLUMNS),
+    symbols.at(index - 1),
+    symbols.at(index + 1),
+    symbols.at(index + COLUMNS),
+  ]);
+  console.log({ adjacentSymbols });
+  if (_.isEmpty(filterKeys)) {
+    return adjacentSymbols;
+  }
+  return _.filter(adjacentSymbols, (testSymbol) => {
+    return _.includes(filterKeys, testSymbol.key);
+  });
+};
+
 // Trigger various symbol effects and tabulate scores
 const processSpin = async (
   viewportSymbols: Symbol[],
@@ -151,16 +194,30 @@ const processSpin = async (
   addToScore: (n: number) => any
 ) => {
   // Activate each symbol in order
-  for (let i in symbolAnimations) {
+  for (let iKey in symbolAnimations) {
+    const i = parseInt(iKey);
+    const symbol = viewportSymbols[i];
+    const symbolAnimation = symbolAnimations[i];
     // TODO: Find affected symbols and animate together
     // TODO: Order of operations (change/destroy/add/multiply-score/incerase-score/etc)
-    if (!viewportSymbols[i].targets) {
+    if (!symbol.effects) {
       continue;
     }
-    await symbolAnimations[i].start(
-      { scale: [1, 2, 1, 2, 1] },
-      { duration: 0.2 }
-    );
+    for (let effect of symbol.effects) {
+      console.log(effect);
+      if (effect.where === 'adjacent') {
+        const targetSymbols = getAdjacentSymbols(
+          i,
+          viewportSymbols,
+          effect.actionTargets
+        );
+        console.log(targetSymbols);
+      }
+    }
+    // TODO: look for matching targets, if there are none continue
+    // otherwise animate and trigger target animations, and apply effect
+    // console.log(symbol);
+    await symbolAnimation.start({ scale: [1, 2, 1, 2, 1] }, { duration: 0.2 });
     // TODO: change or destroy affected symbols
   }
 
